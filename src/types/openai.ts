@@ -56,3 +56,57 @@ export interface OpenAIModelList {
   object: string;
   data: OpenAIModel[];
 }
+
+// OpenAI Responses API Types
+export interface ResponsesInput {
+  type?: 'message';  // Optional - OpenAI-style messages may not have this
+  role: 'user' | 'assistant' | 'system' | 'developer';
+  content: string | ResponsesContentPart[];
+}
+
+export interface ResponsesContentPart {
+  type: 'input_text' | 'output_text' | 'text';
+  text: string;
+}
+
+export interface ResponsesRequest {
+  model: string;
+  input: string | ResponsesInput[];
+  instructions?: string;
+  temperature?: number;
+  max_output_tokens?: number;
+  top_p?: number;
+  stream?: boolean;
+  tools?: any[];
+  tool_choice?: string | { type: string; name: string };
+  metadata?: Record<string, string>;
+  store?: boolean;
+  previous_response_id?: string;
+}
+
+export interface ResponsesOutput {
+  type: 'message';
+  id: string;
+  status: 'completed' | 'in_progress' | 'incomplete';
+  role: 'assistant';
+  content: ResponsesContentPart[];
+}
+
+export interface ResponsesResponse {
+  id: string;
+  object: 'response';
+  created_at: number;
+  model: string;
+  status: 'completed' | 'in_progress' | 'incomplete' | 'failed';
+  output: ResponsesOutput[];
+  usage?: {
+    input_tokens: number;
+    output_tokens: number;
+    total_tokens: number;
+  };
+  metadata?: Record<string, string>;
+  error?: {
+    code: string;
+    message: string;
+  };
+}

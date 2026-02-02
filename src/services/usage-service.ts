@@ -67,7 +67,8 @@ export function trackRequest(sessionId: string, tokenCount = 0): void {
     entry => entry.timestamp >= fiveMinutesAgo
   );
   
-  logger.debug(`Tracked request for session ${sessionId.substring(0, 8)}...: +${tokenCount} tokens`);
+  // Only log significant token updates (avoid per-chunk logging noise)
+  // Logged at higher thresholds or when explicitly needed
 }
 
 /**

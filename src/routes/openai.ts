@@ -796,6 +796,11 @@ async function handleStreamingResponses(
     let accumulatedText = '';
     let firstChunk = true;
     let completionSent = false;
+    const startTime = Date.now();
+    
+    // Track tool calls for logging
+    const toolCallsReceived: Array<{id: string, name: string, argumentsLength: number}> = [];
+    let totalChunks = 0;
     
     // Convert tools to Copilot-compatible format
     const convertedTools = convertToolsForCopilot(request.tools);
@@ -961,6 +966,21 @@ async function handleStreamingResponses(
           if (toolCalls && toolCalls.length > 0) {
             for (const toolCall of toolCalls) {
               if (toolCall.id && toolCall.function?.name) {
+                // Log tool call received
+                logger.info('Tool call received', {
+                  responseId,
+                  toolId: toolCall.id,
+                  toolName: toolCall.function.name,
+                  model: mappedModel
+                });
+                
+                // Track for final summary
+                toolCallsReceived.push({
+                  id: toolCall.id,
+                  name: toolCall.function.name,
+                  argumentsLength: (toolCall.function.arguments || '').length
+                });
+                
                 // Send function_call output item
                 const functionCallId = `call_${uuidv4()}`;
                 res.write(`event: response.output_item.added\ndata: ${JSON.stringify({
@@ -1027,9 +1047,8 @@ async function handleStreamingResponses(
               delta: text
             };
             res.write(`event: response.output_text.delta\ndata: ${JSON.stringify(deltaEvent)}\n\n`);
-            logger.debug('Sent delta event', { text: text.substring(0, 50) });
             
-            // Track tokens
+            // Track tokens (silently)
             const estimatedTokens = Math.ceil(text.length / 4);
             trackRequest(sessionId, estimatedTokens);
           }
@@ -1046,12 +1065,26 @@ async function handleStreamingResponses(
     // Process the stream for Responses API
     const reader = response.body;
     reader.on('data', (chunk: Buffer) => {
-      logger.debug('Responses: Received chunk from Copilot', { length: chunk.length });
+      totalChunks++;
       parser.feed(chunk.toString());
     });
 
     reader.on('end', () => {
-      logger.debug('Responses: Stream ended', { totalTextLength: accumulatedText.length });
+      const duration = Date.now() - startTime;
+      const estimatedTokens = Math.ceil(accumulatedText.length / 4);
+      
+      // Comprehensive final response log
+      logger.info('Response stream completed', { 
+        responseId,
+        model: mappedModel,
+        duration: `${duration}ms`,
+        textLength: accumulatedText.length,
+        estimatedTokens,
+        totalChunks,
+        toolCallCount: toolCallsReceived.length,
+        toolsCalled: toolCallsReceived.map(t => t.name),
+        preview: accumulatedText.substring(0, 100) + (accumulatedText.length > 100 ? '...' : '')
+      });
       
       // Send completion events when stream ends (Copilot doesn't send [DONE])
       if (accumulatedText.length > 0 && !completionSent) {

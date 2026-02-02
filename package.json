@@ -11,7 +11,7 @@
     "start:openclaw": "npm run build && concurrently --names \"proxy,gateway\" --prefix-colors \"cyan,magenta\" \"npm run start:verbose\" \"openclaw gateway --port 18789 --verbose\"",
     "dev": "ts-node src/index.ts",
     "lint": "eslint src/**/*.ts",
-    "test": "jest"
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js"
   },
   "repository": {
     "type": "git",

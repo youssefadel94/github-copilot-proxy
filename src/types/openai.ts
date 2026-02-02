@@ -57,6 +57,46 @@ export interface OpenAIModelList {
   data: OpenAIModel[];
 }
 
+// Legacy Completions API Types (for /v1/completions - used by Cursor tab completions)
+export interface LegacyCompletionRequest {
+  model: string;
+  prompt: string | string[];
+  suffix?: string;
+  max_tokens?: number;
+  temperature?: number;
+  top_p?: number;
+  n?: number;
+  stream?: boolean;
+  logprobs?: number;
+  echo?: boolean;
+  stop?: string | string[];
+  presence_penalty?: number;
+  frequency_penalty?: number;
+  best_of?: number;
+  logit_bias?: Record<string, number>;
+  user?: string;
+}
+
+export interface LegacyCompletionChoice {
+  text: string;
+  index: number;
+  logprobs: null;
+  finish_reason: string | null;
+}
+
+export interface LegacyCompletion {
+  id: string;
+  object: 'text_completion';
+  created: number;
+  model: string;
+  choices: LegacyCompletionChoice[];
+  usage?: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+  };
+}
+
 // OpenAI Responses API Types
 export interface ResponsesInput {
   type?: 'message';  // Optional - OpenAI-style messages may not have this

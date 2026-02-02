@@ -21,7 +21,9 @@ import {
   ResponsesRequest,
   ResponsesResponse,
   ResponsesOutput,
-  OpenAIMessage
+  OpenAIMessage,
+  LegacyCompletionRequest,
+  LegacyCompletion
 } from '../types/openai.js';
 import { AppError } from '../middleware/error-handler.js';
 import { config } from '../config/index.js';
@@ -182,6 +184,260 @@ openaiRoutes.get('/models', requireAuth, (req, res) => {
     ]
   });
 });
+
+// POST /v1/completions - Legacy completions API (for Cursor tab completions)
+openaiRoutes.post('/completions', requireAuth, async (req, res, next) => {
+  const sessionId = res.locals.sessionId || `session-${uuidv4()}`;
+  trackRequest(sessionId, 0);
+  
+  try {
+    const request = req.body as LegacyCompletionRequest;
+    const { prompt, stream = false, model = 'gpt-4o' } = request;
+    
+    // Validate request
+    if (!prompt) {
+      const error = new Error('Prompt is required') as AppError;
+      error.status = 400;
+      error.code = 'invalid_request';
+      return next(error);
+    }
+    
+    const copilotToken = getCopilotToken();
+    if (!copilotToken) {
+      const error = new Error('Authentication required') as AppError;
+      error.status = 401;
+      error.code = 'authentication_required';
+      return next(error);
+    }
+    
+    // Handle streaming response
+    if (stream) {
+      handleStreamingLegacyCompletion(req, res, next, sessionId);
+    } else {
+      // Handle non-streaming response
+      try {
+        const machineId = getMachineId();
+        const completionsUrl = config.github.copilot.apiEndpoints.GITHUB_COPILOT_COMPLETIONS;
+        
+        const promptText = Array.isArray(prompt) ? prompt.join('\n') : prompt;
+        
+        const response = await fetch(completionsUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${copilotToken.token}`,
+            'X-Request-Id': uuidv4(),
+            'Vscode-Machineid': machineId,
+            'Vscode-Sessionid': sessionId,
+            'User-Agent': 'GitHubCopilotChat/0.22.2',
+            'Editor-Version': 'vscode/1.96.0',
+            'Editor-Plugin-Version': 'copilot-chat/0.22.2',
+            'Copilot-Integration-Id': 'vscode-chat',
+            'Openai-Intent': 'copilot-ghost'
+          },
+          body: JSON.stringify({
+            prompt: promptText,
+            suffix: request.suffix || '',
+            max_tokens: request.max_tokens || 500,
+            temperature: request.temperature || 0.1,
+            top_p: request.top_p || 1,
+            n: request.n || 1,
+            stream: false,
+            stop: request.stop || ['\n\n'],
+            extra: {
+              language: 'typescript', // Default, could be detected
+              next_indent: 0,
+              trim_by_indentation: true,
+            }
+          }),
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          logger.error('Completions API error', { status: response.status, error: errorText });
+          throw new Error(`Completions API error: ${response.status}`);
+        }
+        
+        const data = await response.json() as any;
+        
+        // Convert to OpenAI format
+        const legacyResponse: LegacyCompletion = {
+          id: `cmpl-${uuidv4()}`,
+          object: 'text_completion',
+          created: Math.floor(Date.now() / 1000),
+          model,
+          choices: (data.choices || []).map((choice: any, index: number) => ({
+            text: choice.text || '',
+            index,
+            logprobs: null,
+            finish_reason: choice.finish_reason || 'stop',
+          })),
+          usage: data.usage
+        };
+        
+        // Track token usage
+        const totalTokens = legacyResponse.usage?.total_tokens || 0;
+        trackRequest(sessionId, totalTokens);
+        
+        res.json(legacyResponse);
+      } catch (error) {
+        logger.error('Error in non-streaming legacy completion:', error);
+        next(error);
+      }
+    }
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Handle streaming legacy completions (for Cursor tab completions)
+async function handleStreamingLegacyCompletion(
+  req: express.Request,
+  res: express.Response,
+  next: express.NextFunction,
+  sessionId: string
+) {
+  try {
+    const request = req.body as LegacyCompletionRequest;
+    const { prompt, model = 'gpt-4o' } = request;
+    
+    const copilotToken = getCopilotToken();
+    if (!copilotToken || !copilotToken.token) {
+      const error = new Error('Authentication required') as AppError;
+      error.status = 401;
+      error.code = 'authentication_required';
+      return next(error);
+    }
+    
+    const machineId = getMachineId();
+    
+    // Set appropriate headers for SSE
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders();
+    
+    const completionsUrl = config.github.copilot.apiEndpoints.GITHUB_COPILOT_COMPLETIONS;
+    const promptText = Array.isArray(prompt) ? prompt.join('\n') : prompt;
+    
+    const response = await fetch(completionsUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${copilotToken.token}`,
+        'X-Request-Id': uuidv4(),
+        'Vscode-Machineid': machineId,
+        'Vscode-Sessionid': sessionId,
+        'User-Agent': 'GitHubCopilotChat/0.22.2',
+        'Editor-Version': 'vscode/1.96.0',
+        'Editor-Plugin-Version': 'copilot-chat/0.22.2',
+        'Copilot-Integration-Id': 'vscode-chat',
+        'Openai-Intent': 'copilot-ghost'
+      },
+      body: JSON.stringify({
+        prompt: promptText,
+        suffix: request.suffix || '',
+        max_tokens: request.max_tokens || 500,
+        temperature: request.temperature || 0.1,
+        top_p: request.top_p || 1,
+        n: request.n || 1,
+        stream: true,
+        stop: request.stop || ['\n\n'],
+        extra: {
+          language: 'typescript',
+          next_indent: 0,
+          trim_by_indentation: true,
+        }
+      }),
+    });
+
+    if (!response.ok) {
+      logger.error('Stream connection error', {
+        status: response.status,
+        statusText: response.statusText
+      });
+      throw new Error(`Stream connection error: ${response.status} ${response.statusText}`);
+    }
+
+    if (!response.body) {
+      throw new Error('No response body');
+    }
+
+    // Create SSE parser
+    const parser = createParser({
+      onEvent(event: EventSourceMessage) {
+        const data = event.data;
+        
+        if (data === '[DONE]') {
+          res.write('data: [DONE]\n\n');
+          return;
+        }
+        
+        try {
+          const parsed = JSON.parse(data);
+          const text = parsed.choices?.[0]?.text || '';
+          
+          // Convert to legacy completion format
+          const legacyFormatted = {
+            id: `cmpl-${uuidv4()}`,
+            object: 'text_completion',
+            created: Math.floor(Date.now() / 1000),
+            model,
+            choices: [
+              {
+                text: text,
+                index: 0,
+                logprobs: null,
+                finish_reason: parsed.choices?.[0]?.finish_reason || null
+              }
+            ]
+          };
+          
+          res.write(`data: ${JSON.stringify(legacyFormatted)}\n\n`);
+          
+          if (text) {
+            const estimatedTokens = Math.ceil(text.length / 4);
+            trackRequest(sessionId, estimatedTokens);
+          }
+        } catch (error) {
+          logger.error('Error parsing stream message:', error);
+          res.write(`data: ${JSON.stringify({ error: String(error) })}\n\n`);
+        }
+      }
+    });
+
+    // Process the stream
+    const reader = response.body;
+    reader.on('data', (chunk: Buffer) => {
+      parser.feed(chunk.toString());
+    });
+
+    reader.on('end', () => {
+      res.end();
+    });
+
+    reader.on('error', (err: Error) => {
+      logger.error('SSE stream error:', err);
+      res.write(`data: ${JSON.stringify({ error: String(err) })}\n\n`);
+      res.end();
+    });
+
+  } catch (error) {
+    logger.error('Error in streaming legacy completion:', error);
+    
+    if (!res.headersSent) {
+      return next(error);
+    }
+    
+    try {
+      res.write(`data: ${JSON.stringify({ error: String(error) })}\n\n`);
+      res.end();
+    } catch (streamError) {
+      logger.error('Error sending error response to stream:', streamError);
+    }
+  }
+}
 
 // POST /v1/chat/completions - Create a completion
 openaiRoutes.post('/chat/completions', requireAuth, async (req, res, next) => {

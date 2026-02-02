@@ -251,6 +251,7 @@ curl http://localhost:18790/v1/responses \
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/v1/models` | GET | List all available models |
+| `/v1/completions` | POST | Legacy completions API (for Cursor tab autocomplete) |
 | `/v1/chat/completions` | POST | Chat completions (OpenAI format, streaming supported) |
 | `/v1/responses` | POST | Responses API (newer OpenAI format, streaming supported) |
 | `/auth/status` | GET | Check authentication status |

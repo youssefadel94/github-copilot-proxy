@@ -1,11 +1,40 @@
+﻿// ============================================
+// UPDATED TYPES - E:\work\openClaw\github-copilot-proxy\src\types\openai.ts
+// ============================================
+
+// Tool definition for function calling
+export interface ToolFunction {
+  name: string;
+  description?: string;
+  parameters?: Record<string, any>;
+  strict?: boolean;
+}
+
+export interface Tool {
+  type: 'function';
+  function: ToolFunction;
+}
+
+// Tool call in assistant message
+export interface ToolCall {
+  id: string;
+  type: 'function';
+  function: {
+    name: string;
+    arguments: string;
+  };
+}
+
 export interface OpenAIMessage {
-  role: 'system' | 'user' | 'assistant' | 'function';
+  role: 'system' | 'user' | 'assistant' | 'function' | 'tool';
   content: string | null;
   name?: string;
   function_call?: {
     name: string;
     arguments: string;
   };
+  tool_calls?: ToolCall[];
+  tool_call_id?: string;
 }
 
 export interface OpenAICompletionRequest {
@@ -21,14 +50,19 @@ export interface OpenAICompletionRequest {
   frequency_penalty?: number;
   logit_bias?: Record<string, number>;
   user?: string;
+  // Legacy function calling
   functions?: any[];
   function_call?: 'auto' | 'none' | { name: string };
+  // Modern tool calling
+  tools?: Tool[];
+  tool_choice?: 'auto' | 'none' | 'required' | { type: 'function'; function: { name: string } };
+  parallel_tool_calls?: boolean;
 }
 
 export interface OpenAICompletionChoice {
   index: number;
   message?: OpenAIMessage;
-  delta?: Partial<OpenAIMessage>;
+  delta?: Partial<OpenAIMessage> & { tool_calls?: Partial<ToolCall>[] };
   finish_reason: string | null;
 }
 
@@ -99,14 +133,26 @@ export interface LegacyCompletion {
 
 // OpenAI Responses API Types
 export interface ResponsesInput {
-  type?: 'message';  // Optional - OpenAI-style messages may not have this
-  role: 'user' | 'assistant' | 'system' | 'developer';
-  content: string | ResponsesContentPart[];
+  type?: 'message' | 'function_call_output';
+  role?: 'user' | 'assistant' | 'system' | 'developer';
+  content?: string | ResponsesContentPart[];
+  call_id?: string;
+  output?: string;
 }
 
 export interface ResponsesContentPart {
   type: 'input_text' | 'output_text' | 'text';
   text: string;
+}
+
+// Responses API tool output
+export interface ResponsesToolOutput {
+  type: 'function_call';
+  id: string;
+  call_id: string;
+  name: string;
+  arguments: string;
+  status?: 'completed' | 'in_progress';
 }
 
 export interface ResponsesRequest {
@@ -117,19 +163,24 @@ export interface ResponsesRequest {
   max_output_tokens?: number;
   top_p?: number;
   stream?: boolean;
-  tools?: any[];
-  tool_choice?: string | { type: string; name: string };
+  tools?: Tool[];
+  tool_choice?: 'auto' | 'none' | 'required' | { type: 'function'; name: string };
+  parallel_tool_calls?: boolean;
   metadata?: Record<string, string>;
   store?: boolean;
   previous_response_id?: string;
 }
 
 export interface ResponsesOutput {
-  type: 'message';
+  type: 'message' | 'function_call';
   id: string;
   status: 'completed' | 'in_progress' | 'incomplete';
-  role: 'assistant';
-  content: ResponsesContentPart[];
+  role?: 'assistant';
+  content?: ResponsesContentPart[];
+  // For function_call type
+  call_id?: string;
+  name?: string;
+  arguments?: string;
 }
 
 export interface ResponsesResponse {

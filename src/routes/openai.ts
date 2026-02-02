@@ -1,4 +1,4 @@
-import express from 'express';
+﻿import express from 'express';
 import fetch from 'node-fetch';
 import { createParser, type EventSourceMessage } from 'eventsource-parser';
 import { v4 as uuidv4 } from 'uuid';
@@ -13,7 +13,8 @@ import {
   detectLanguageFromMessages,
   makeCompletionRequest,
   convertResponsesInputToMessages,
-  mapToCopilotModel
+  mapToCopilotModel,
+  convertToolsForCopilot
 } from '../services/copilot-service.js';
 import { 
   OpenAICompletionRequest, 
@@ -557,7 +558,10 @@ async function handleStreamingCompletion(
         temperature: temperature || 0.7,
         top_p: top_p || 1,
         n: n || 1,
-        stream: true
+        stream: true,
+        ...(request.tools && request.tools.length > 0 && { tools: request.tools }),
+        ...(request.tool_choice && { tool_choice: request.tool_choice }),
+        ...(request.parallel_tool_calls !== undefined && { parallel_tool_calls: request.parallel_tool_calls })
       }),
     });
 
@@ -600,7 +604,8 @@ async function handleStreamingCompletion(
               {
                 index: 0,
                 delta: {
-                  content: content
+                  content: content,
+                  ...(parsed.choices?.[0]?.delta?.tool_calls && { tool_calls: parsed.choices[0].delta.tool_calls })
                 },
                 finish_reason: parsed.choices?.[0]?.finish_reason || null
               }
@@ -789,6 +794,21 @@ async function handleStreamingResponses(
     let firstChunk = true;
     let completionSent = false;
     
+    // Convert tools to Copilot-compatible format
+    const convertedTools = convertToolsForCopilot(request.tools);
+    
+    // Debug log the request being made
+    const mappedModel = mapToCopilotModel(model || 'gpt-4o');
+    logger.debug('Responses API streaming request details', {
+      chatUrl,
+      requestedModel: model,
+      mappedModel,
+      messageCount: messages.length,
+      hasTools: !!convertedTools,
+      originalToolCount: request.tools?.length || 0,
+      convertedToolCount: convertedTools?.length || 0
+    });
+    
     // Send initial response.created event
     res.write(`event: response.created\ndata: ${JSON.stringify({
       type: 'response.created',
@@ -824,16 +844,29 @@ async function handleStreamingResponses(
         temperature: request.temperature || 0.7,
         top_p: request.top_p || 1,
         n: 1,
-        stream: true
+        stream: true,
+        ...(convertedTools && convertedTools.length > 0 && { tools: convertedTools }),
+        ...(request.tool_choice && { tool_choice: request.tool_choice }),
+        ...(request.parallel_tool_calls !== undefined && { parallel_tool_calls: request.parallel_tool_calls })
       }),
     });
 
     if (!response.ok) {
-      logger.error('Stream connection error', {
+      // Read the error response body to understand the actual error
+      let errorBody = '';
+      try {
+        errorBody = await response.text();
+      } catch (e) {
+        errorBody = 'Unable to read error body';
+      }
+      logger.error('Stream connection error (Responses API)', {
         status: response.status,
-        statusText: response.statusText
+        statusText: response.statusText,
+        errorBody,
+        requestModel: model,
+        mappedModel: mapToCopilotModel(model || 'gpt-4o')
       });
-      throw new Error(`Stream connection error: ${response.status} ${response.statusText}`);
+      throw new Error(`Stream connection error: ${response.status} ${response.statusText} - ${errorBody}`);
     }
 
     if (!response.body) {
@@ -916,6 +949,35 @@ async function handleStreamingResponses(
           // Chat completions uses delta.content, not text
           const text = parsed.choices?.[0]?.delta?.content || '';
           
+          // Handle tool_calls from the model
+          const toolCalls = parsed.choices?.[0]?.delta?.tool_calls;
+          if (toolCalls && toolCalls.length > 0) {
+            for (const toolCall of toolCalls) {
+              if (toolCall.id && toolCall.function?.name) {
+                // Send function_call output item
+                const functionCallId = `call_${uuidv4()}`;
+                res.write(`event: response.output_item.added\ndata: ${JSON.stringify({
+                  type: 'response.output_item.added',
+                  item: {
+                    type: 'function_call',
+                    id: functionCallId,
+                    call_id: toolCall.id,
+                    name: toolCall.function.name,
+                    arguments: toolCall.function.arguments || '',
+                    status: 'in_progress'
+                  },
+                  output_index: 0
+                })}\n\n`);
+              } else if (toolCall.function?.arguments) {
+                // Stream function arguments delta
+                res.write(`event: response.function_call_arguments.delta\ndata: ${JSON.stringify({
+                  type: 'response.function_call_arguments.delta',
+                  delta: toolCall.function.arguments
+                })}\n\n`);
+              }
+            }
+          }
+
           if (text) {
             // On first chunk, send output_item.added and content_part.added
             if (firstChunk) {
@@ -1078,3 +1140,6 @@ async function handleStreamingResponses(
     }
   }
 }
+
+
+

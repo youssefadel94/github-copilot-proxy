@@ -14,7 +14,8 @@ import {
   makeCompletionRequest,
   convertResponsesInputToMessages,
   mapToCopilotModel,
-  convertToolsForCopilot
+  convertToolsForCopilot,
+  fixToolMessagePairing
 } from '../services/copilot-service.js';
 import { 
   OpenAICompletionRequest, 
@@ -514,7 +515,8 @@ async function handleStreamingCompletion(
 ) {
   try {
     const request = req.body as OpenAICompletionRequest;
-    const { messages, temperature, max_tokens, top_p, n, model = 'gpt-4' } = request;
+    const { messages: rawMessages, temperature, max_tokens, top_p, n, model = 'gpt-4' } = request;
+    const messages = fixToolMessagePairing(rawMessages);
     
     const copilotToken = getCopilotToken();
     if (!copilotToken || !copilotToken.token) {
@@ -694,7 +696,8 @@ openaiRoutes.post('/responses', requireAuth, async (req, res, next) => {
     }
     
     // Convert Responses API input to OpenAI messages format
-    const messages = convertResponsesInputToMessages(input, instructions);
+    const rawMessages = convertResponsesInputToMessages(input, instructions);
+    const messages = fixToolMessagePairing(rawMessages);
     
     // Handle streaming response
     if (stream) {
@@ -797,13 +800,17 @@ async function handleStreamingResponses(
     // Convert tools to Copilot-compatible format
     const convertedTools = convertToolsForCopilot(request.tools);
     
+    // Fix tool message pairing to avoid orphaned tool_results
+    const fixedMessages = fixToolMessagePairing(messages);
+    
     // Debug log the request being made
     const mappedModel = mapToCopilotModel(model || 'gpt-4o');
     logger.debug('Responses API streaming request details', {
       chatUrl,
       requestedModel: model,
       mappedModel,
-      messageCount: messages.length,
+      originalMessageCount: messages.length,
+      fixedMessageCount: fixedMessages.length,
       hasTools: !!convertedTools,
       originalToolCount: request.tools?.length || 0,
       convertedToolCount: convertedTools?.length || 0
@@ -839,7 +846,7 @@ async function handleStreamingResponses(
       },
       body: JSON.stringify({
         model: mapToCopilotModel(model || 'gpt-4o'),
-        messages,
+        messages: fixedMessages,
         max_tokens: request.max_output_tokens || 4096,
         temperature: request.temperature || 0.7,
         top_p: request.top_p || 1,
@@ -1140,6 +1147,8 @@ async function handleStreamingResponses(
     }
   }
 }
+
+
 
 
 

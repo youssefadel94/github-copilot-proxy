@@ -82,7 +82,7 @@ export function convertToolsForCopilot(tools?: any[]): Tool[] | undefined {
           }
         });
       } else {
-        logger.warn('Skipping tool with invalid function name', { tool });
+        logger.warn('Skipping tool with invalid function name', { tool: JSON.stringify(tool).substring(0, 200) });
       }
     }
     // Handle custom type (some APIs use this)
@@ -97,7 +97,7 @@ export function convertToolsForCopilot(tools?: any[]): Tool[] | undefined {
           }
         });
       } else {
-        logger.warn('Skipping custom tool with invalid name', { tool });
+        logger.warn('Skipping custom tool with invalid name', { tool: JSON.stringify(tool).substring(0, 200) });
       }
     }
     // Handle direct function definition (legacy format)
@@ -116,7 +116,7 @@ export function convertToolsForCopilot(tools?: any[]): Tool[] | undefined {
       logger.debug('Skipping unsupported tool type', { toolType: tool.type });
     }
     else {
-      logger.warn('Skipping tool with unrecognized format', { tool });
+      logger.warn('Skipping tool with unrecognized format', { tool: JSON.stringify(tool).substring(0, 200) });
     }
   }
   
@@ -133,11 +133,55 @@ export function convertToolsForCopilot(tools?: any[]): Tool[] | undefined {
   return convertedTools;
 }
 
+/**
+ * Validates and fixes message history to ensure tool_use/tool_result pairing is correct.
+ * Claude requires that each tool_result references a tool_use from the immediately preceding assistant message.
+ */
+export function fixToolMessagePairing(messages: OpenAIMessage[]): OpenAIMessage[] {
+  const fixed: OpenAIMessage[] = [];
+  const toolUseIds = new Set<string>();
+  
+  for (let i = 0; i < messages.length; i++) {
+    const msg = messages[i];
+    
+    // Track tool_use IDs from assistant messages
+    if (msg.role === 'assistant' && msg.tool_calls) {
+      for (const tc of msg.tool_calls) {
+        if (tc.id) toolUseIds.add(tc.id);
+      }
+    }
+    
+    // For tool messages, check if the tool_call_id exists
+    if (msg.role === 'tool' && msg.tool_call_id) {
+      if (!toolUseIds.has(msg.tool_call_id)) {
+        // This tool_result references a tool_use that doesn't exist
+        // Convert it to a regular user message with context
+        logger.warn('Orphaned tool_result found, converting to user message', { 
+          tool_call_id: msg.tool_call_id 
+        });
+        fixed.push({
+          role: 'user',
+          content: `[Previous tool result: ${msg.content}]`
+        });
+        continue;
+      }
+    }
+    
+    fixed.push(msg);
+  }
+  
+  return fixed;
+}
+
 export async function makeCompletionRequest(
   request: OpenAICompletionRequest,
   copilotToken: string
 ): Promise<CopilotCompletionResponse> {
-  const { model, messages, temperature, max_tokens, top_p, n, tools, tool_choice, parallel_tool_calls } = request;
+  const { model, temperature, max_tokens, top_p, n, tools, tool_choice, parallel_tool_calls } = request;
+  
+  // Fix tool message pairing before sending
+  const messages = fixToolMessagePairing(request.messages);
+  
   const machineId = getMachineId();
   const chatUrl = config.github.copilot.apiEndpoints.GITHUB_COPILOT_CHAT;
   
@@ -184,7 +228,8 @@ export async function makeCompletionRequest(
       chatUrl, 
       model: copilotModel, 
       hasTools: !!tools,
-      toolChoice: tool_choice 
+      toolChoice: tool_choice,
+      messageCount: messages.length
     });
     
     const response = await fetch(chatUrl, {

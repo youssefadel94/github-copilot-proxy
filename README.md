@@ -1,8 +1,8 @@
 # GitHub Copilot Proxy - Universal OpenAI-Compatible Gateway
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
-[![Node.js](https://img.shields.io/badge/Node.js-18.0+-green.svg)](https://nodejs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.5+-blue.svg)](https://www.typescriptlang.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-22.0+-green.svg)](https://nodejs.org/)
 [![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-yellow.svg)](https://conventionalcommits.org)
 [![OpenClaw](https://img.shields.io/badge/OpenClaw-Supported-orange.svg)](https://github.com/openclaw/openclaw)
 [![OpenAI Compatible](https://img.shields.io/badge/OpenAI-Compatible-green.svg)](https://platform.openai.com/docs/api-reference)
@@ -49,7 +49,7 @@ Automatically translates common model name variations:
 
 ## 📋 Prerequisites
 
-- Node.js 18.0 or higher
+- Node.js 22.0 or higher
 - GitHub Copilot subscription (Individual, Business, or Enterprise)
 
 ## 🔧 Installation
@@ -102,12 +102,17 @@ This proxy fully supports [OpenClaw](https://github.com/openclaw/openclaw), an A
 
 ### Quick Start with OpenClaw
 
-1. Start the proxy with OpenClaw gateway:
+1. Install OpenClaw CLI globally:
    ```bash
-   npm run start:all
+   npm install -g openclaw
    ```
 
-2. Configure OpenClaw to use the proxy:
+2. Start the proxy with OpenClaw gateway:
+   ```bash
+   npm run start:openclaw
+   ```
+
+3. Configure OpenClaw to use the proxy:
    ```yaml
    # openclaw.config.yaml
    provider:
@@ -324,7 +329,7 @@ You can use either format - the proxy handles the translation automatically.
 npm run build          # Build the TypeScript project
 npm start              # Start the server
 npm run start:verbose  # Start with debug logging
-npm run start:all      # Build and run with OpenClaw gateway
+npm run start:openclaw # Build and run with OpenClaw gateway (requires: npm i -g openclaw)
 npm run dev            # Run in development mode with ts-node
 npm test               # Run tests
 npm run lint           # Run linting

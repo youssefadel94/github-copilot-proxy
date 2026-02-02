@@ -8,7 +8,7 @@
     "copy-public": "node -e \"require('fs').cpSync('src/public', 'dist/public', {recursive: true})\"",
     "start": "node dist/index.js",
     "start:verbose": "cross-env LOG_LEVEL=debug node dist/index.js",
-    "start:all": "npm run build && concurrently --names \"proxy,gateway\" --prefix-colors \"cyan,magenta\" \"npm run start:verbose\" \"openclaw gateway --port 18789 --verbose\"",
+    "start:openclaw": "npm run build && concurrently --names \"proxy,gateway\" --prefix-colors \"cyan,magenta\" \"npm run start:verbose\" \"openclaw gateway --port 18789 --verbose\"",
     "dev": "ts-node src/index.ts",
     "lint": "eslint src/**/*.ts",
     "test": "jest"
@@ -49,11 +49,11 @@
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
     "@types/jest": "^29.5.11",
-    "@types/node": "^20.11.6",
+    "@types/node": "^22.0.0",
     "@types/supertest": "^6.0.2",
     "@types/uuid": "^9.0.8",
-    "@typescript-eslint/eslint-plugin": "^6.19.1",
-    "@typescript-eslint/parser": "^6.19.1",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
     "concurrently": "^8.2.2",
     "cross-env": "^7.0.3",
     "eslint": "^8.56.0",
@@ -61,10 +61,10 @@
     "supertest": "^6.3.4",
     "ts-jest": "^29.1.2",
     "ts-node": "^10.9.2",
-    "typescript": "^5.3.3"
+    "typescript": "^5.5.0"
   },
   "type": "module",
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=22.0.0"
   }
 }

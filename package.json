@@ -8,10 +8,11 @@
     "copy-public": "node -e \"require('fs').cpSync('src/public', 'dist/public', {recursive: true})\"",
     "start": "node dist/index.js",
     "start:verbose": "cross-env LOG_LEVEL=debug node dist/index.js",
-    "start:openclaw": "npm run build && concurrently --names \"proxy,gateway\" --prefix-colors \"cyan,magenta\" \"npm run start:verbose\" \"openclaw gateway --port 18789 --verbose\"",
+    "start:openclaw": "npm run build && concurrently --names \"proxy,gateway\" --prefix-colors \"cyan,magenta\" \"npm run start:verbose\" \"powershell -ExecutionPolicy Bypass -File \".\\openclaw-gateway-daemon.ps1\"\"",
     "dev": "ts-node src/index.ts",
     "lint": "eslint src/**/*.ts",
-    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js"
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "whatsapp:login": "powershell -ExecutionPolicy Bypass -File \".\\openclaw-whatsapp-login.ps1\""
   },
   "repository": {
     "type": "git",

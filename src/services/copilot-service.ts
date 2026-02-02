@@ -140,6 +140,7 @@ export function convertToolsForCopilot(tools?: any[]): Tool[] | undefined {
 export function fixToolMessagePairing(messages: OpenAIMessage[]): OpenAIMessage[] {
   const fixed: OpenAIMessage[] = [];
   const toolUseIds = new Set<string>();
+  const orphanedToolResults: string[] = [];
   
   for (let i = 0; i < messages.length; i++) {
     const msg = messages[i];
@@ -156,18 +157,25 @@ export function fixToolMessagePairing(messages: OpenAIMessage[]): OpenAIMessage[
       if (!toolUseIds.has(msg.tool_call_id)) {
         // This tool_result references a tool_use that doesn't exist
         // Convert it to a regular user message with context
-        logger.warn('Orphaned tool_result found, converting to user message', { 
-          tool_call_id: msg.tool_call_id 
-        });
+        orphanedToolResults.push(msg.tool_call_id);
         fixed.push({
           role: 'user',
-          content: `[Previous tool result: ${msg.content}]`
+          content: `[Previous tool result: ${typeof msg.content === 'string' ? msg.content.substring(0, 200) : msg.content}${typeof msg.content === 'string' && msg.content.length > 200 ? '...' : ''}]`
         });
         continue;
       }
     }
     
     fixed.push(msg);
+  }
+  
+  // Log summary of orphaned tool results (not each one individually)
+  if (orphanedToolResults.length > 0) {
+    logger.debug('Fixed orphaned tool_results in message history', {
+      count: orphanedToolResults.length,
+      toolCallIds: orphanedToolResults.slice(0, 3).map(id => id.substring(0, 20) + '...'),
+      hasMore: orphanedToolResults.length > 3
+    });
   }
   
   return fixed;

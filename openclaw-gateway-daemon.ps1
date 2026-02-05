@@ -4,9 +4,24 @@
 
 $ErrorActionPreference = "Continue"
 
-$port = 18789
+$port = 18791
 $restartDelay = 3  # seconds to wait before respawning
 $logFile = "openclaw-gateway-daemon.log"
+
+# Check if openclaw is installed
+function CheckOpenClawInstalled {
+    try {
+        # Use cmd /c for reliable npx execution on Windows
+        $output = cmd /c "openclaw --version 2>&1"
+        if ($LASTEXITCODE -eq 0) {
+            return $true
+        }
+    } catch {
+        return $false
+    }
+    
+    return $false
+}
 
 # Error patterns that trigger immediate restart
 $criticalErrors = @(
@@ -21,7 +36,17 @@ $criticalErrors = @(
     "Fatal error",
     "cannot connect",
     "ECONNREFUSED",
-    "ETIMEDOUT"
+    "ETIMEDOUT",
+    "FailoverError.*401 Authentication required",
+    "401 Authentication required.*auth"
+)
+
+# Error patterns that are expected/non-critical (don't log as critical)
+$expectedErrors = @(
+    "unauthorized.*token_missing",
+    "unauthorized conn=",
+    "closed before connect",
+    "connect failed"
 )
 
 # Error patterns that trigger WhatsApp login
@@ -32,7 +57,9 @@ $whatsappLoginErrors = @(
     "WhatsApp.*QR",
     "device.*not.*registered",
     "session.*expired",
-    "authentication.*failed"
+    "authentication.*failed",
+    "401 Authentication required",
+    "FailoverError.*401"
 )
 
 Write-Host "========================================" -ForegroundColor Cyan
@@ -41,6 +68,20 @@ Write-Host "  Port: $port" -ForegroundColor Cyan
 Write-Host "  Log: $logFile" -ForegroundColor Cyan
 Write-Host "  Press Ctrl+C to stop" -ForegroundColor Yellow
 Write-Host "========================================" -ForegroundColor Cyan
+
+# Check if openclaw CLI is installed
+Write-Host "`nChecking OpenClaw installation..." -ForegroundColor Yellow
+if (-not (CheckOpenClawInstalled)) {
+    Write-Host "ERROR: OpenClaw CLI is not installed or not in PATH!" -ForegroundColor Red
+    Write-Host "`nTo fix this, run:" -ForegroundColor Yellow
+    Write-Host "  npm install -g openclaw" -ForegroundColor Cyan
+    Write-Host "`nOr install from: https://github.com/openclaw/openclaw" -ForegroundColor Cyan
+    Write-Host "`nDaemon cannot start without OpenClaw installed." -ForegroundColor Red
+    exit 1
+}
+
+Write-Host "OpenClaw CLI found in PATH" -ForegroundColor Green
+Write-Host ""
 
 function Log {
     param([string]$Message, [string]$Color = "White")
@@ -89,6 +130,13 @@ function CheckForCriticalError {
     
     $allOutput = "$Output`n$ErrorOutput"
     
+    # Check if it's an expected/non-critical error first
+    foreach ($pattern in $expectedErrors) {
+        if ($allOutput -match $pattern) {
+            return $false, ""
+        }
+    }
+    
     foreach ($pattern in $criticalErrors) {
         if ($allOutput -match $pattern) {
             return $true, $pattern
@@ -114,10 +162,11 @@ while ($true) {
     
     try {
         # Start process and capture output in real-time
-        $process = Start-Process -FilePath "openclaw" -ArgumentList "gateway --port $port --verbose" `
+        # Use cmd /c to invoke npx (more reliable on Windows)
+        $process = Start-Process -FilePath "cmd" -ArgumentList "/c", "openclaw gateway --port $port --verbose" `
             -RedirectStandardOutput $env:TEMP\gateway_stdout.tmp `
             -RedirectStandardError $env:TEMP\gateway_stderr.tmp `
-            -PassThru -NoNewWindow
+            -PassThru -NoNewWindow -ErrorAction Stop
         
         $processId = $process.Id
         Log "Gateway process started (PID: $processId)" "Green"
@@ -126,16 +175,60 @@ while ($true) {
         $monitorInterval = 500  # milliseconds
         $lastCheckTime = Get-Date
         
-        while (!$process.HasExited) {
+        while ($null -ne $process -and !$process.HasExited) {
             # Check for critical errors in output files
             if (Test-Path $env:TEMP\gateway_stdout.tmp) {
-                $stdout = Get-Content $env:TEMP\gateway_stdout.tmp -Raw -ErrorAction SilentlyContinue
-                $processOutput += $stdout.Split("`n")
+                try {
+                    $stdout = Get-Content $env:TEMP\gateway_stdout.tmp -Raw -ErrorAction SilentlyContinue
+                    if ($null -ne $stdout -and $stdout.Length -gt 0) {
+                        # Log new output lines
+                        $newLines = $stdout.Split("`n") | Where-Object { $_ -and $_ -notin $processOutput }
+                        foreach ($line in $newLines) {
+                            if ($line.Trim()) {
+                                # Clean up the log line - remove trailing content after parenthesis
+                                $cleanLine = $line -replace '\s*\(.*$', ''
+                                Log "[OpenClaw] $cleanLine" "Cyan"
+                                
+                                # Check if canvas/gateway is mounted and open browser
+                                if ($line -match "canvas.*mounted at\s+(https?://[^\s]+)") {
+                                    $url = $matches[1]
+                                    Log "Gateway ready! Opening $url in browser..." "Green"
+                                    Start-Process $url -ErrorAction SilentlyContinue
+                                }
+                                
+                                $processOutput += $line
+                            }
+                        }
+                    }
+                } catch {
+                    # Ignore file read errors
+                }
             }
             
             if (Test-Path $env:TEMP\gateway_stderr.tmp) {
-                $stderr = Get-Content $env:TEMP\gateway_stderr.tmp -Raw -ErrorAction SilentlyContinue
-                $processError += $stderr.Split("`n")
+                try {
+                    $stderr = Get-Content $env:TEMP\gateway_stderr.tmp -Raw -ErrorAction SilentlyContinue
+                    if ($null -ne $stderr -and $stderr.Length -gt 0) {
+                        # Log new error lines
+                        $newLines = $stderr.Split("`n") | Where-Object { $_ -and $_ -notin $processError }
+                        foreach ($line in $newLines) {
+                            if ($line.Trim()) {
+                                # Clean up the log line
+                                $cleanLine = $line -replace '\s*\(.*$', ''
+                                
+                                # Identify auth errors and provide helpful context
+                                if ($cleanLine -match "unauthorized|token_missing|connect failed") {
+                                    Log "[OpenClaw] $cleanLine (authentication - configure OpenClaw token to fix)" "Magenta"
+                                } else {
+                                    Log "[OpenClaw ERROR] $cleanLine" "Yellow"
+                                }
+                                $processError += $line
+                            }
+                        }
+                    }
+                } catch {
+                    # Ignore file read errors
+                }
             }
             
             # Check for WhatsApp login errors first
@@ -175,23 +268,69 @@ while ($true) {
             Start-Sleep -Milliseconds $monitorInterval
         }
         
-        $exitCode = $process.ExitCode
+        # Ensure process object is valid before accessing ExitCode
+        if ($null -ne $process) {
+            $exitCode = $process.ExitCode
+        } else {
+            $exitCode = 1
+        }
     }
     catch {
+        $errorMsg = $_.Exception.Message
         $exitCode = 1
-        Log "Exception: $_" "Red"
+        Log "Exception: $errorMsg" "Red"
+        
+        # Check for specific Windows executable error
+        if ($errorMsg -match "not a valid Win32 application|cannot find the path|npx") {
+            Log "FATAL: OpenClaw could not be executed" "Red"
+            Log "Please ensure npm and Node.js are installed: https://nodejs.org/" "Yellow"
+            Log "Then install OpenClaw: npm install -g openclaw" "Yellow"
+            Log "Daemon will exit." "Red"
+            exit 1
+        }
+        
         $isCriticalError = $true
     }
     
-    # Read final output
+    # Read final output and display any remaining logs
+    $hasOutput = $false
+    
     if (Test-Path $env:TEMP\gateway_stdout.tmp) {
-        $finalStdout = Get-Content $env:TEMP\gateway_stdout.tmp -Raw -ErrorAction SilentlyContinue
+        try {
+            $finalStdout = Get-Content $env:TEMP\gateway_stdout.tmp -Raw -ErrorAction SilentlyContinue
+            if ($null -ne $finalStdout -and $finalStdout.Length -gt 0) {
+                $hasOutput = $true
+                Log "=== OpenClaw Output ===" "Cyan"
+                $finalStdout.Split("`n") | ForEach-Object {
+                    if ($_.Trim()) {
+                        $cleanLine = $_ -replace '\s*\(.*$', ''
+                        Log $cleanLine "Cyan"
+                    }
+                }
+            }
+        } catch { }
         Remove-Item $env:TEMP\gateway_stdout.tmp -Force -ErrorAction SilentlyContinue
     }
     
     if (Test-Path $env:TEMP\gateway_stderr.tmp) {
-        $finalStderr = Get-Content $env:TEMP\gateway_stderr.tmp -Raw -ErrorAction SilentlyContinue
+        try {
+            $finalStderr = Get-Content $env:TEMP\gateway_stderr.tmp -Raw -ErrorAction SilentlyContinue
+            if ($null -ne $finalStderr -and $finalStderr.Length -gt 0) {
+                $hasOutput = $true
+                Log "=== OpenClaw Errors ===" "Yellow"
+                $finalStderr.Split("`n") | ForEach-Object {
+                    if ($_.Trim()) {
+                        $cleanLine = $_ -replace '\s*\(.*$', ''
+                        Log $cleanLine "Yellow"
+                    }
+                }
+            }
+        } catch { }
         Remove-Item $env:TEMP\gateway_stderr.tmp -Force -ErrorAction SilentlyContinue
+    }
+    
+    if (-not $hasOutput -and $exitCode -ne 0) {
+        Log "Gateway exited with no output. Check if OpenClaw CLI is properly configured." "Yellow"
     }
     
     $runtime = (Get-Date) - $startTime

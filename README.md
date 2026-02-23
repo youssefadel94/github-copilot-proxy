@@ -91,9 +91,9 @@ Automatically translates common model name variations:
 2. Go to Settings > API Keys
 3. In the "Override OpenAI Base URL" section, enter:
    ```
-   http://localhost:18790/v1
+   http://localhost:3000/v1
    ```
-4. Go to http://localhost:18790/auth.html in your browser
+4. Go to http://localhost:3000/auth.html in your browser
 5. Follow the authentication steps to connect to GitHub
 
 ## 🐾 OpenClaw Integration
@@ -117,10 +117,10 @@ This proxy fully supports [OpenClaw](https://github.com/openclaw/openclaw), an A
    # openclaw.config.yaml
    provider:
      type: openai
-     baseUrl: http://localhost:18790/v1
+     baseUrl: http://localhost:3000/v1
    ```
 
-3. Authenticate at `http://localhost:18790/auth.html`
+3. Authenticate at `http://localhost:3000/auth.html`
 
 ### OpenClaw Agent Categories
 
@@ -142,7 +142,7 @@ This proxy fully supports [OpenClaw](https://github.com/openclaw/openclaw), an A
     "title": "GitHub Copilot via Proxy",
     "provider": "openai",
     "model": "gpt-4o",
-    "apiBase": "http://localhost:18790/v1",
+    "apiBase": "http://localhost:3000/v1",
     "apiKey": "dummy"
   }]
 }
@@ -151,7 +151,7 @@ This proxy fully supports [OpenClaw](https://github.com/openclaw/openclaw), an A
 ### Aider (AI Pair Programming)
 ```bash
 # Set environment variables
-export OPENAI_API_BASE=http://localhost:18790/v1
+export OPENAI_API_BASE=http://localhost:3000/v1
 export OPENAI_API_KEY=dummy
 
 # Run Aider with any supported model
@@ -165,7 +165,7 @@ from langchain_openai import ChatOpenAI
 
 llm = ChatOpenAI(
     model="gpt-4o",
-    base_url="http://localhost:18790/v1",
+    base_url="http://localhost:3000/v1",
     api_key="dummy"  # Not validated, but required
 )
 
@@ -178,7 +178,7 @@ from llama_index.llms.openai import OpenAI
 
 llm = OpenAI(
     model="claude-sonnet-4.5",
-    api_base="http://localhost:18790/v1",
+    api_base="http://localhost:3000/v1",
     api_key="dummy"
 )
 ```
@@ -188,7 +188,7 @@ llm = OpenAI(
 from openai import OpenAI
 
 client = OpenAI(
-    base_url="http://localhost:18790/v1",
+    base_url="http://localhost:3000/v1",
     api_key="dummy"
 )
 
@@ -207,7 +207,7 @@ for chunk in response:
 import OpenAI from 'openai';
 
 const openai = new OpenAI({
-  baseURL: 'http://localhost:18790/v1',
+  baseURL: 'http://localhost:3000/v1',
   apiKey: 'dummy'
 });
 
@@ -225,10 +225,10 @@ for await (const chunk of stream) {
 ### cURL / REST API
 ```bash
 # List available models
-curl http://localhost:18790/v1/models
+curl http://localhost:3000/v1/models
 
 # Chat completion
-curl http://localhost:18790/v1/chat/completions \
+curl http://localhost:3000/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
     "model": "gpt-4o",
@@ -237,7 +237,7 @@ curl http://localhost:18790/v1/chat/completions \
   }'
 
 # Responses API (newer format)
-curl http://localhost:18790/v1/responses \
+curl http://localhost:3000/v1/responses \
   -H "Content-Type: application/json" \
   -d '{
     "model": "claude-sonnet-4.5",
@@ -264,7 +264,7 @@ curl http://localhost:18790/v1/responses \
 
 ### Basic Chat Completion
 ```bash
-curl -X POST http://localhost:18790/v1/chat/completions \
+curl -X POST http://localhost:3000/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
     "model": "gpt-4o",
@@ -277,7 +277,7 @@ curl -X POST http://localhost:18790/v1/chat/completions \
 
 ### Streaming Response
 ```bash
-curl -X POST http://localhost:18790/v1/chat/completions \
+curl -X POST http://localhost:3000/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
     "model": "claude-sonnet-4.5",
@@ -288,7 +288,7 @@ curl -X POST http://localhost:18790/v1/chat/completions \
 
 ### Responses API Format
 ```bash
-curl -X POST http://localhost:18790/v1/responses \
+curl -X POST http://localhost:3000/v1/responses \
   -H "Content-Type: application/json" \
   -d '{
     "model": "gemini-2.5-pro",
@@ -339,7 +339,7 @@ npm run lint           # Run linting
 ### Environment Variables
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `PORT` | `18790` | Server port |
+| `PORT` | `3000` | Server port |
 | `HOST` | `localhost` | Server host |
 | `LOG_LEVEL` | `info` | Logging level (`error`, `warn`, `info`, `debug`) |
 
@@ -360,7 +360,7 @@ npm run lint           # Run linting
                            ▼
           ┌────────────────────────────────┐
           │   GitHub Copilot Proxy         │
-          │   http://localhost:18790/v1    │
+          │   http://localhost:3000/v1    │
           │                                │
           │  • /v1/chat/completions        │
           │  • /v1/responses               │

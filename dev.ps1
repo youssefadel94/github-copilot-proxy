@@ -20,7 +20,7 @@ $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
 
 Write-Host "`n=== github-copilot-proxy  |  dev mode ===" -ForegroundColor Cyan
-Write-Host "Watching src/ for changes — auto-rebuild & restart`n" -ForegroundColor DarkGray
+Write-Host "Watching src/ for changes - auto-rebuild and restart`n" -ForegroundColor DarkGray
 
 # ── 1. Initial build ────────────────────────────────────────────────
 Write-Host "[1/2] Building project..." -ForegroundColor Yellow

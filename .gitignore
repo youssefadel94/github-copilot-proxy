@@ -36,6 +36,9 @@ build/
 out/
 .next/
 
+# Dev-mode temp loader
+.dev-entry.mjs
+
 # Coverage directory used by tools like istanbul
 coverage/
 *.lcov

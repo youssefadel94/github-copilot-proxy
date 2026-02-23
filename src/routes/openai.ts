@@ -77,112 +77,39 @@ openaiRoutes.get('/models', requireAuth, (req, res) => {
   res.json({
     object: 'list',
     data: [
-      // Claude Models (Anthropic)
-      {
-        id: 'claude-opus-4.5',
-        object: 'model',
-        created: timestamp,
-        owned_by: 'anthropic',
-      },
-      {
-        id: 'claude-sonnet-4.5',
-        object: 'model',
-        created: timestamp,
-        owned_by: 'anthropic',
-      },
-      {
-        id: 'claude-sonnet-4',
-        object: 'model',
-        created: timestamp,
-        owned_by: 'anthropic',
-      },
-      {
-        id: 'claude-haiku-4.5',
-        object: 'model',
-        created: timestamp,
-        owned_by: 'anthropic',
-      },
-      // GPT Models (OpenAI/Azure)
-      {
-        id: 'gpt-4o',
-        object: 'model',
-        created: timestamp,
-        owned_by: 'azure-openai',
-      },
-      {
-        id: 'gpt-4o-mini',
-        object: 'model',
-        created: timestamp,
-        owned_by: 'azure-openai',
-      },
-      {
-        id: 'gpt-4.1',
-        object: 'model',
-        created: timestamp,
-        owned_by: 'azure-openai',
-      },
-      {
-        id: 'gpt-4',
-        object: 'model',
-        created: timestamp,
-        owned_by: 'azure-openai',
-      },
-      {
-        id: 'gpt-3.5-turbo',
-        object: 'model',
-        created: timestamp,
-        owned_by: 'azure-openai',
-      },
-      {
-        id: 'gpt-5.2',
-        object: 'model',
-        created: timestamp,
-        owned_by: 'openai',
-      },
-      {
-        id: 'gpt-5-codex',
-        object: 'model',
-        created: timestamp,
-        owned_by: 'openai',
-      },
-      // Gemini Models (Google)
-      {
-        id: 'gemini-2.5-pro',
-        object: 'model',
-        created: timestamp,
-        owned_by: 'google',
-      },
-      {
-        id: 'gemini-3-pro-preview',
-        object: 'model',
-        created: timestamp,
-        owned_by: 'google',
-      },
-      {
-        id: 'gemini-3-flash-preview',
-        object: 'model',
-        created: timestamp,
-        owned_by: 'google',
-      },
-      // o1/o3 Reasoning Models
-      {
-        id: 'o1-preview',
-        object: 'model',
-        created: timestamp,
-        owned_by: 'openai',
-      },
-      {
-        id: 'o1-mini',
-        object: 'model',
-        created: timestamp,
-        owned_by: 'openai',
-      },
-      {
-        id: 'o3-mini',
-        object: 'model',
-        created: timestamp,
-        owned_by: 'openai',
-      }
+      // ── Anthropic Claude ─────────────────────────────────────────
+      { id: 'claude-haiku-4.5',       object: 'model', created: timestamp, owned_by: 'anthropic' },
+      { id: 'claude-opus-4.5',        object: 'model', created: timestamp, owned_by: 'anthropic' },
+      { id: 'claude-opus-4.6',        object: 'model', created: timestamp, owned_by: 'anthropic' },
+      { id: 'claude-opus-4.6-fast',   object: 'model', created: timestamp, owned_by: 'anthropic' },
+      { id: 'claude-sonnet-4',        object: 'model', created: timestamp, owned_by: 'anthropic' },
+      { id: 'claude-sonnet-4.5',      object: 'model', created: timestamp, owned_by: 'anthropic' },
+      { id: 'claude-sonnet-4.6',      object: 'model', created: timestamp, owned_by: 'anthropic' },
+
+      // ── OpenAI GPT ──────────────────────────────────────────────
+      { id: 'gpt-4o',                 object: 'model', created: timestamp, owned_by: 'openai' },
+      { id: 'gpt-4.1',                object: 'model', created: timestamp, owned_by: 'openai' },
+      { id: 'gpt-5-mini',             object: 'model', created: timestamp, owned_by: 'openai' },
+      { id: 'gpt-5.1',                object: 'model', created: timestamp, owned_by: 'openai' },
+      { id: 'gpt-5.1-codex',          object: 'model', created: timestamp, owned_by: 'openai' },
+      { id: 'gpt-5.1-codex-mini',     object: 'model', created: timestamp, owned_by: 'openai' },
+      { id: 'gpt-5.1-codex-max',      object: 'model', created: timestamp, owned_by: 'openai' },
+      { id: 'gpt-5.2',                object: 'model', created: timestamp, owned_by: 'openai' },
+      { id: 'gpt-5.2-codex',          object: 'model', created: timestamp, owned_by: 'openai' },
+      { id: 'gpt-5.3-codex',          object: 'model', created: timestamp, owned_by: 'openai' },
+
+      // ── Google Gemini ───────────────────────────────────────────
+      { id: 'gemini-2.5-pro',         object: 'model', created: timestamp, owned_by: 'google' },
+      { id: 'gemini-3-flash',         object: 'model', created: timestamp, owned_by: 'google' },
+      { id: 'gemini-3-pro',           object: 'model', created: timestamp, owned_by: 'google' },
+      { id: 'gemini-3.1-pro',         object: 'model', created: timestamp, owned_by: 'google' },
+
+      // ── xAI ─────────────────────────────────────────────────────
+      { id: 'grok-code-fast-1',       object: 'model', created: timestamp, owned_by: 'xai' },
+
+      // ── GitHub fine-tuned ───────────────────────────────────────
+      { id: 'raptor-mini',            object: 'model', created: timestamp, owned_by: 'github' },
+      { id: 'goldeneye',              object: 'model', created: timestamp, owned_by: 'github' },
     ]
   });
 });

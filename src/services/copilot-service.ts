@@ -14,38 +14,71 @@ import { getMachineId } from '../utils/machine-id.js';
 import { logger } from '../utils/logger.js';
 
 const MODEL_MAPPING: Record<string, string> = {
-  'claude-4.5-opus': 'claude-opus-4.5',
-  'claude-opus-4.5': 'claude-opus-4.5',
-  'claude-4-opus': 'claude-opus-4.5',
-  'claude-opus-4': 'claude-opus-4.5',
-  'claude-4.5-sonnet': 'claude-sonnet-4.5',
-  'claude-sonnet-4.5': 'claude-sonnet-4.5',
-  'claude-4-sonnet': 'claude-sonnet-4',
-  'claude-sonnet-4': 'claude-sonnet-4',
-  'claude-4.5-haiku': 'claude-haiku-4.5',
-  'claude-haiku-4.5': 'claude-haiku-4.5',
-  'claude-3.5-sonnet': 'claude-sonnet-4',
-  'claude-3-opus': 'claude-opus-4.5',
-  'claude-3-sonnet': 'claude-sonnet-4',
-  'gpt-4o': 'gpt-4o',
-  'gpt-4o-mini': 'gpt-4o-mini',
-  'gpt-4.1': 'gpt-4.1',
-  'gpt-4-turbo': 'gpt-4-0125-preview',
-  'gpt-4': 'gpt-4',
-  'gpt-3.5-turbo': 'gpt-3.5-turbo',
-  'gpt-5.2': 'gpt-5.2',
-  'gpt-5-codex': 'gpt-5-codex',
-  'gpt-5.1-codex-max': 'gpt-5.1-codex-max',
-  'gemini-2.5-pro': 'gemini-2.5-pro',
-  'gemini-3-pro': 'gemini-3-pro-preview',
-  'gemini-3-pro-preview': 'gemini-3-pro-preview',
-  'gemini-3-flash': 'gemini-3-flash-preview',
-  'gemini-3-flash-preview': 'gemini-3-flash-preview',
-  'o1': 'o1-preview',
-  'o1-preview': 'o1-preview',
-  'o1-mini': 'o1-mini',
-  'o3-mini': 'o3-mini',
-  'default': 'gpt-4o'
+  // ── Anthropic Claude ─────────────────────────────────────────────
+  'claude-haiku-4.5':            'claude-haiku-4.5',
+  'claude-4.5-haiku':            'claude-haiku-4.5',
+  'claude-opus-4.5':             'claude-opus-4.5',
+  'claude-4.5-opus':             'claude-opus-4.5',
+  'claude-opus-4.6':             'claude-opus-4.6',
+  'claude-4.6-opus':             'claude-opus-4.6',
+  'claude-opus-4.6-fast':        'claude-opus-4.6-fast',
+  'claude-sonnet-4':             'claude-sonnet-4',
+  'claude-4-sonnet':             'claude-sonnet-4',
+  'claude-sonnet-4.5':           'claude-sonnet-4.5',
+  'claude-4.5-sonnet':           'claude-sonnet-4.5',
+  'claude-sonnet-4.6':           'claude-sonnet-4.6',
+  'claude-4.6-sonnet':           'claude-sonnet-4.6',
+
+  // ── OpenAI GPT ──────────────────────────────────────────────────
+  'gpt-4o':                      'gpt-4o',
+  'gpt-4.1':                     'gpt-4.1',
+  'gpt-5-mini':                  'gpt-5-mini',
+  'gpt-5.1':                     'gpt-5.1',
+  'gpt-5.1-codex':               'gpt-5.1-codex',
+  'gpt-5.1-codex-mini':          'gpt-5.1-codex-mini',
+  'gpt-5.1-codex-max':           'gpt-5.1-codex-max',
+  'gpt-5.2':                     'gpt-5.2',
+  'gpt-5.2-codex':               'gpt-5.2-codex',
+  'gpt-5.3-codex':               'gpt-5.3-codex',
+
+  // ── Google Gemini ───────────────────────────────────────────────
+  'gemini-2.5-pro':              'gemini-2.5-pro',
+  'gemini-3-flash':              'gemini-3-flash',
+  'gemini-3-pro':                'gemini-3-pro',
+  'gemini-3.1-pro':              'gemini-3.1-pro',
+
+  // ── xAI ─────────────────────────────────────────────────────────
+  'grok-code-fast-1':            'grok-code-fast-1',
+
+  // ── GitHub fine-tuned ───────────────────────────────────────────
+  'raptor-mini':                 'raptor-mini',
+  'goldeneye':                   'goldeneye',
+
+  // ── Backward-compatible aliases for retired models ──────────────
+  'claude-3.5-sonnet':           'claude-sonnet-4.6',   // retired 2025-11-06
+  'claude-3-opus':               'claude-opus-4.6',     // retired
+  'claude-3-sonnet':             'claude-sonnet-4.6',   // retired
+  'claude-opus-4':               'claude-opus-4.6',     // retired 2025-10-23
+  'claude-4-opus':               'claude-opus-4.6',     // retired
+  'claude-opus-4.1':             'claude-opus-4.6',     // retired 2026-02-17
+  'gpt-4':                       'gpt-4.1',             // legacy
+  'gpt-4-turbo':                 'gpt-4.1',             // legacy
+  'gpt-4o-mini':                 'gpt-5-mini',          // legacy
+  'gpt-3.5-turbo':               'gpt-4.1',             // legacy
+  'gpt-5':                       'gpt-5.2',             // retired 2026-02-17
+  'gpt-5-codex':                 'gpt-5.2-codex',       // retired 2026-02-17
+  'o1':                          'gpt-5-mini',          // retired 2025-10-23
+  'o1-preview':                  'gpt-5-mini',          // retired 2025-10-23
+  'o1-mini':                     'gpt-5-mini',          // retired 2025-10-23
+  'o3':                          'gpt-5.2',             // retired 2025-10-23
+  'o3-mini':                     'gpt-5-mini',          // retired 2025-10-23
+  'o4-mini':                     'gpt-5-mini',          // retired 2025-10-23
+  'gemini-2.0-flash':            'gemini-2.5-pro',      // retired 2025-10-23
+  'gemini-3-pro-preview':        'gemini-3-pro',        // alias
+  'gemini-3-flash-preview':      'gemini-3-flash',      // alias
+
+  // ── Default ─────────────────────────────────────────────────────
+  'default':                     'gpt-4o'
 };
 
 export function mapToCopilotModel(requestedModel: string): string {
